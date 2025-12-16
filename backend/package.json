@@ -4,7 +4,12 @@
   "main": "index.js",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "seed:universities": "node scripts/seedUniversities.js",
+    "seed:universities:us": "node scripts/seedUniversities.js --us-only",
+    "seed:universities:quick": "node scripts/seedUniversities.js --hipo-only",
+    "db:indexes": "node scripts/createIndexes.js",
+    "db:check-search": "node scripts/checkSearchIndexes.js"
   },
   "keywords": [],
   "type": "module",
@@ -21,6 +26,7 @@
     "express": "^5.1.0",
     "express-async-handler": "^1.2.0",
     "mongoose": "^8.16.0",
-    "multer": "^2.0.1"
+    "multer": "^2.0.1",
+    "svix": "^1.82.0"
   }
 }

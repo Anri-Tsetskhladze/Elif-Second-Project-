@@ -7,6 +7,7 @@ import {
   updateProfile,
 } from "../controllers/user.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
+import { profileUpdateLimiter, likeLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get("/profile/:username", getUserProfile);
 // protected routes
 router.post("/sync", protectRoute, syncUser);
 router.get("/me", protectRoute, getCurrentUser);
-router.put("/profile", protectRoute, updateProfile);
-router.post("/follow/:targetUserId", protectRoute, followUser);
+router.put("/profile", protectRoute, profileUpdateLimiter, updateProfile);
+router.post("/follow/:targetUserId", protectRoute, likeLimiter, followUser);
 
 export default router;

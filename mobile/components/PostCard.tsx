@@ -1,6 +1,6 @@
 import { Post, User } from "@/types";
 import { formatDate, formatNumber } from "@/utils/formatters";
-import { AntDesign, Feather } from "@expo/vector-icons";
+import { AntDesign, Feather, Ionicons } from "@expo/vector-icons";
 import { View, Text, Alert, Image, TouchableOpacity } from "react-native";
 
 interface PostCardProps {
@@ -13,7 +13,7 @@ interface PostCardProps {
 }
 
 const PostCard = ({ currentUser, onDelete, onLike, post, isLiked, onComment }: PostCardProps) => {
-  const isOwnPost = post.user._id === currentUser._id;
+  const isOwnPost = post.user._id?.toString() === currentUser._id?.toString();
 
   const handleDelete = () => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
@@ -29,10 +29,16 @@ const PostCard = ({ currentUser, onDelete, onLike, post, isLiked, onComment }: P
   return (
     <View className="border-b border-gray-100 bg-white">
       <View className="flex-row p-4">
-        <Image
-          source={{ uri: post.user.profilePicture || "" }}
-          className="w-12 h-12 rounded-full mr-3"
-        />
+        {post.user.profilePicture && post.user.profilePicture.length > 0 ? (
+          <Image
+            source={{ uri: post.user.profilePicture }}
+            className="w-12 h-12 rounded-full mr-3"
+          />
+        ) : (
+          <View className="w-12 h-12 rounded-full bg-gray-200 mr-3 items-center justify-center">
+            <Ionicons name="person" size={24} color="#9CA3AF" />
+          </View>
+        )}
 
         <View className="flex-1">
           <View className="flex-row items-center justify-between mb-1">
