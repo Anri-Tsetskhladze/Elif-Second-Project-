@@ -88,6 +88,16 @@ export const notificationLimiter = createRateLimiter({
   message: "Too many notification requests",
 });
 
+// Profile update rate limit
+export const profileUpdateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 updates per minute
+  message: "Too many profile updates, please slow down",
+});
+
+// Alias for post creation limiter
+export const postLimiter = postCreationLimiter;
+
 export default {
   generalLimiter,
   searchLimiter,
@@ -98,4 +108,5 @@ export default {
   likeLimiter,
   followLimiter,
   notificationLimiter,
+  profileUpdateLimiter,
 };

@@ -217,7 +217,8 @@ export interface GlobalSearchResults {
 }
 
 export interface UniversitySearchResult {
-  _id: string;
+  _id?: string;
+  id?: number;
   name: string;
   city?: string;
   state?: string;
@@ -226,6 +227,16 @@ export interface UniversitySearchResult {
   rating?: number;
   reviewCount?: number;
   studentCount?: number;
+  stats?: {
+    studentSize?: number;
+    admissionRate?: number;
+    avgSat?: number;
+    avgAct?: number;
+  };
+  costs?: {
+    tuitionInState?: number;
+    tuitionOutState?: number;
+  };
 }
 
 export interface UserSearchResult {

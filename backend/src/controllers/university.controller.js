@@ -5,57 +5,20 @@ import User from "../models/user.model.js";
 import Review from "../models/review.model.js";
 import Post from "../models/post.model.js";
 import Note from "../models/note.model.js";
+import * as collegeScorecardService from "../services/collegeScorecardService.js";
 
-// GET /api/universities - search/list with filters
+// GET /api/universities - search/list with filters (uses College Scorecard API)
 export const getUniversities = asyncHandler(async (req, res) => {
-  const {
-    q,
-    country,
-    state,
-    city,
-    type,
-    level,
-    minRating,
-    maxTuition,
-    minStudents,
-    maxStudents,
-    sortBy = "relevance",
-    page = 1,
-    limit = 20,
-  } = req.query;
+  const { q, state, page = 1, limit = 20 } = req.query;
 
-  const universities = await University.search({
+  const result = await collegeScorecardService.searchUniversities({
     query: q,
-    country,
     state,
-    city,
-    type,
-    level,
-    minRating: minRating ? parseFloat(minRating) : undefined,
-    maxTuition: maxTuition ? parseInt(maxTuition) : undefined,
-    minStudents: minStudents ? parseInt(minStudents) : undefined,
-    maxStudents: maxStudents ? parseInt(maxStudents) : undefined,
-    sortBy,
     page: parseInt(page),
     limit: Math.min(parseInt(limit), 100),
   });
 
-  const total = await University.countDocuments({
-    isActive: true,
-    ...(country && { country }),
-    ...(state && { state: state.toUpperCase() }),
-    ...(type && { type }),
-  });
-
-  res.status(200).json({
-    universities,
-    pagination: {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      total,
-      pages: Math.ceil(total / parseInt(limit)),
-    },
-  });
+  res.status(200).json(result);
 });
 
 // GET /api/universities/popular
@@ -98,27 +61,9 @@ export const getCountries = asyncHandler(async (req, res) => {
   res.status(200).json({ countries });
 });
 
-// GET /api/universities/states
+// GET /api/universities/states (US states list)
 export const getStates = asyncHandler(async (req, res) => {
-  const { country = "United States" } = req.query;
-
-  const result = await University.aggregate([
-    { $match: { isActive: true, country } },
-    {
-      $group: {
-        _id: "$state",
-        count: { $sum: 1 },
-      },
-    },
-    { $match: { _id: { $ne: null, $ne: "" } } },
-    { $sort: { _id: 1 } },
-  ]);
-
-  const states = result.map((r) => ({
-    state: r._id,
-    count: r.count,
-  }));
-
+  const states = await collegeScorecardService.getStates();
   res.status(200).json({ states });
 });
 
@@ -148,37 +93,27 @@ export const verifyEmail = asyncHandler(async (req, res) => {
   }
 });
 
-// GET /api/universities/suggest
+// GET /api/universities/suggest (uses College Scorecard API)
 export const suggestUniversities = asyncHandler(async (req, res) => {
-  const { domain, q, limit = 10 } = req.query;
+  const { q, limit = 10 } = req.query;
 
-  let universities = [];
-
-  if (domain) {
-    universities = await University.find({
-      isActive: true,
-      emailDomains: { $regex: domain, $options: "i" },
-    })
-      .limit(parseInt(limit))
-      .select("name city state emailDomains images.logo");
-  } else if (q && q.length >= 2) {
-    universities = await University.find(
-      { isActive: true, $text: { $search: q } },
-      { score: { $meta: "textScore" } }
-    )
-      .sort({ score: { $meta: "textScore" } })
-      .limit(parseInt(limit))
-      .select("name city state images.logo");
+  if (!q || q.length < 2) {
+    return res.status(200).json({ universities: [] });
   }
 
-  res.status(200).json({ universities });
+  const result = await collegeScorecardService.searchUniversities({
+    query: q,
+    limit: parseInt(limit),
+  });
+
+  res.status(200).json({ universities: result.universities });
 });
 
-// GET /api/universities/:id
+// GET /api/universities/:id (fetch from College Scorecard API)
 export const getUniversity = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const university = await University.findOne({ _id: id, isActive: true });
+  const university = await collegeScorecardService.getUniversityById(id);
 
   if (!university) {
     return res.status(404).json({ error: "University not found" });

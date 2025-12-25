@@ -11,11 +11,15 @@ interface UniversitySearchResultProps {
 const UniversitySearchResult = ({ university, onPress }: UniversitySearchResultProps) => {
   const router = useRouter();
 
+  // Handle both API format (id) and database format (_id)
+  const universityId = university.id || university._id;
+  const studentCount = university.stats?.studentSize || university.studentCount;
+
   const handlePress = () => {
     if (onPress) {
       onPress();
     } else {
-      router.push(`/universities/${university._id}`);
+      router.push(`/universities/${universityId}`);
     }
   };
 
@@ -74,11 +78,11 @@ const UniversitySearchResult = ({ university, onPress }: UniversitySearchResultP
             </View>
           )}
 
-          {university.studentCount !== undefined && university.studentCount > 0 && (
+          {studentCount !== undefined && studentCount > 0 && (
             <View className="flex-row items-center">
               <Ionicons name="people-outline" size={14} color="#6B7280" />
               <Text className="text-gray-500 text-sm ml-1">
-                {university.studentCount.toLocaleString()} students
+                {studentCount.toLocaleString()} students
               </Text>
             </View>
           )}

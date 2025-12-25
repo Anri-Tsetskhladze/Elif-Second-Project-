@@ -5,6 +5,7 @@ import Note from "../models/note.model.js";
 import Review from "../models/review.model.js";
 import SearchHistory from "../models/searchHistory.model.js";
 import mongoose from "mongoose";
+import * as collegeScorecardService from "./collegeScorecardService.js";
 
 const DEFAULT_LIMIT = 10;
 
@@ -101,88 +102,24 @@ const buildRegexQuery = (query, fields) => {
   };
 };
 
-// Search universities
+// Search universities (using College Scorecard API)
 export const searchUniversities = async (query, options = {}) => {
-  const { limit = DEFAULT_LIMIT, page = 1, sortBy = "score" } = options;
-  const skip = (page - 1) * limit;
-  const method = await checkAtlasSearch();
+  const { limit = DEFAULT_LIMIT, page = 1 } = options;
 
-  if (method === "atlas") {
-    try {
-      const pipeline = [
-        buildAtlasSearch(query, "universities_search", ["name", "city", "state", "description"]),
-        { $addFields: { score: { $meta: "searchScore" } } },
-        { $sort: sortBy === "score" ? { score: -1 } : { name: 1 } },
-        {
-          $facet: {
-            results: [
-              { $skip: skip },
-              { $limit: limit },
-              {
-                $project: {
-                  name: 1,
-                  city: 1,
-                  state: 1,
-                  country: 1,
-                  images: 1,
-                  rating: 1,
-                  reviewCount: 1,
-                  studentCount: 1,
-                  score: 1,
-                  highlights: { $meta: "searchHighlights" },
-                },
-              },
-            ],
-            total: [{ $count: "count" }],
-          },
-        },
-      ];
-
-      const [result] = await University.aggregate(pipeline);
-      const total = result.total[0]?.count || 0;
-
-      return { results: result.results, total };
-    } catch (error) {
-      console.error("Atlas Search error, falling back:", error.message);
-    }
-  }
-
-  // Fallback to basic text search
   try {
-    let universities = await University.find(
-      buildTextSearchQuery(query),
-      { score: { $meta: "textScore" } }
-    )
-      .sort(sortBy === "score" ? { score: { $meta: "textScore" } } : { name: 1 })
-      .skip(skip)
-      .limit(limit)
-      .select("name city state country images rating reviewCount studentCount")
-      .lean();
+    const result = await collegeScorecardService.searchUniversities({
+      query,
+      page,
+      limit,
+    });
 
-    if (universities.length === 0) {
-      universities = await University.find(buildRegexQuery(query, ["name", "city", "state"]))
-        .skip(skip)
-        .limit(limit)
-        .select("name city state country images rating reviewCount studentCount")
-        .lean();
-    }
-
-    const total = await University.countDocuments(
-      universities.length > 0
-        ? buildTextSearchQuery(query)
-        : buildRegexQuery(query, ["name", "city", "state"])
-    );
-
-    return { results: universities, total };
+    return {
+      results: result.universities,
+      total: result.pagination.total,
+    };
   } catch (error) {
-    const universities = await University.find(buildRegexQuery(query, ["name", "city", "state"]))
-      .skip(skip)
-      .limit(limit)
-      .select("name city state country images rating reviewCount studentCount")
-      .lean();
-
-    const total = await University.countDocuments(buildRegexQuery(query, ["name", "city", "state"]));
-    return { results: universities, total };
+    console.error("College Scorecard API error:", error.message);
+    return { results: [], total: 0 };
   }
 };
 
@@ -703,7 +640,7 @@ export const globalSearch = async (query, options = {}) => {
   };
 };
 
-// Autocomplete suggestions with Atlas Search support
+// Autocomplete suggestions (universities from API, others from database)
 export const getSuggestions = async (query, options = {}) => {
   const { limit = 8 } = options;
 
@@ -711,60 +648,35 @@ export const getSuggestions = async (query, options = {}) => {
     return [];
   }
 
-  const method = await checkAtlasSearch();
-
-  if (method === "atlas") {
-    try {
-      const [universities, subjects] = await Promise.all([
-        University.aggregate([
-          buildAtlasAutocomplete(query, "universities_autocomplete", "name"),
-          { $limit: 3 },
-          { $project: { name: 1 } },
-        ]),
-        Note.aggregate([
-          buildAtlasAutocomplete(query, "notes_autocomplete", "subject"),
-          { $match: { status: "active" } },
-          { $group: { _id: "$subject" } },
-          { $limit: 3 },
-        ]),
-      ]);
-
-      const suggestions = [
-        ...universities.map((u) => ({ type: "university", text: u.name })),
-        ...subjects.map((s) => ({ type: "subject", text: s._id })),
-      ];
-
-      return suggestions.slice(0, limit);
-    } catch (error) {
-      console.error("Atlas autocomplete error, falling back:", error.message);
-    }
-  }
-
-  // Fallback to regex
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(`^${escapedQuery}`, "i");
 
-  const [universities, subjects, tags] = await Promise.all([
-    University.find({ name: regex }).limit(3).select("name").lean(),
-    Note.distinct("subject", { subject: regex, status: "active" }).then((s) => s.slice(0, 3)),
-    Post.distinct("tags", { tags: regex, status: "active" }).then((t) => t.slice(0, 3)),
-  ]);
+  try {
+    const [universitiesResult, subjects, tags] = await Promise.all([
+      collegeScorecardService.searchUniversities({ query, limit: 3 }),
+      Note.distinct("subject", { subject: regex, status: "active" }).then((s) => s.slice(0, 3)),
+      Post.distinct("tags", { tags: regex, status: "active" }).then((t) => t.slice(0, 3)),
+    ]);
 
-  const suggestions = [
-    ...universities.map((u) => ({ type: "university", text: u.name })),
-    ...subjects.map((s) => ({ type: "subject", text: s })),
-    ...tags.map((t) => ({ type: "tag", text: t })),
-  ];
+    const suggestions = [
+      ...universitiesResult.universities.map((u) => ({ type: "university", text: u.name })),
+      ...subjects.map((s) => ({ type: "subject", text: s })),
+      ...tags.map((t) => ({ type: "tag", text: t })),
+    ];
 
-  suggestions.sort((a, b) => {
-    const aStartsWith = a.text.toLowerCase().startsWith(query.toLowerCase());
-    const bStartsWith = b.text.toLowerCase().startsWith(query.toLowerCase());
-    if (aStartsWith && !bStartsWith) return -1;
-    if (!aStartsWith && bStartsWith) return 1;
-    return a.text.localeCompare(b.text);
-  });
+    suggestions.sort((a, b) => {
+      const aStartsWith = a.text.toLowerCase().startsWith(query.toLowerCase());
+      const bStartsWith = b.text.toLowerCase().startsWith(query.toLowerCase());
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+      return a.text.localeCompare(b.text);
+    });
 
-  return suggestions.slice(0, limit);
+    return suggestions.slice(0, limit);
+  } catch (error) {
+    console.error("Suggestions error:", error.message);
+    return [];
+  }
 };
 
 // Save search to history

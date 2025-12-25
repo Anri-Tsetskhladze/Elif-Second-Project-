@@ -1,7 +1,17 @@
 import axios, { AxiosInstance } from "axios";
 import { useAuth } from "@clerk/clerk-expo";
+import { Platform } from "react-native";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://x-clone-rn.vercel.app/api";
+// Android emulator uses 10.0.2.2 to access host machine's localhost
+const getApiUrl = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && envUrl.includes("localhost") && Platform.OS === "android") {
+    return envUrl.replace("localhost", "10.0.2.2");
+  }
+  return envUrl || "http://localhost:5001/api";
+};
+
+const API_BASE_URL = getApiUrl();
 
 export const createApiClient = (getToken: () => Promise<string | null>): AxiosInstance => {
   const api = axios.create({ baseURL: API_BASE_URL });

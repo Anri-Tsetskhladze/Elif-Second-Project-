@@ -128,8 +128,8 @@ const SearchResults = ({
                 </TouchableOpacity>
               )}
             </View>
-            {universities.slice(0, 3).map((university) => (
-              <UniversitySearchResult key={university._id} university={university} />
+            {universities.slice(0, 3).map((university, index) => (
+              <UniversitySearchResult key={String(university.id || university._id || index)} university={university} />
             ))}
           </View>
         )}
@@ -195,7 +195,7 @@ const SearchResults = ({
     return (
       <FlatList
         data={universities}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => String(item.id || item._id)}
         renderItem={({ item }) => <UniversitySearchResult university={item} />}
         onEndReached={() => hasMore.universities && onLoadMore?.("universities")}
         onEndReachedThreshold={0.5}
@@ -215,7 +215,7 @@ const SearchResults = ({
     return (
       <FlatList
         data={users}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, index) => String(item._id || index)}
         renderItem={({ item }) => <UserSearchResult user={item} />}
         onEndReached={() => hasMore.users && onLoadMore?.("users")}
         onEndReachedThreshold={0.5}
@@ -235,7 +235,7 @@ const SearchResults = ({
     return (
       <FlatList
         data={posts}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, index) => String(item._id || index)}
         renderItem={({ item }) => <PostSearchResult post={item} searchQuery={results.query} />}
         onEndReached={() => hasMore.posts && onLoadMore?.("posts")}
         onEndReachedThreshold={0.5}
@@ -255,7 +255,7 @@ const SearchResults = ({
     return (
       <FlatList
         data={notes}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, index) => String(item._id || index)}
         renderItem={({ item }) => <NoteSearchResult note={item} />}
         onEndReached={() => hasMore.notes && onLoadMore?.("notes")}
         onEndReachedThreshold={0.5}
