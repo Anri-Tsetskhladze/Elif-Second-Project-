@@ -22,6 +22,9 @@ const createRateLimiter = (options) => {
     handler: (req, res, next, options) => {
       res.status(429).json(options.message);
     },
+    validate: {
+      ip: false,
+    },
   });
 };
 

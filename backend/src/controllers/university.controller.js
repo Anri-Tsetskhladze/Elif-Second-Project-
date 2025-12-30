@@ -6,6 +6,7 @@ import Review from "../models/review.model.js";
 import Post from "../models/post.model.js";
 import Note from "../models/note.model.js";
 import * as collegeScorecardService from "../services/collegeScorecardService.js";
+import * as unsplashService from "../services/unsplashService.js";
 
 // GET /api/universities - search/list with filters (uses College Scorecard API)
 export const getUniversities = asyncHandler(async (req, res) => {
@@ -369,4 +370,55 @@ export const getNearbyUniversities = asyncHandler(async (req, res) => {
     .select("name city state coordinates images.logo ratings.overall");
 
   res.status(200).json({ universities });
+});
+
+// GET /api/universities/:id/campus-images
+export const getCampusImages = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { count = 5, refresh = false } = req.query;
+
+  // First try to get university from API to get the name
+  let universityName;
+
+  // Check if id is numeric (College Scorecard ID)
+  if (/^\d+$/.test(id)) {
+    const apiUniversity = await collegeScorecardService.getUniversityById(id);
+    if (apiUniversity) {
+      universityName = apiUniversity.name;
+    }
+  } else {
+    // MongoDB ID - get from database
+    const dbUniversity = await University.findById(id).select("name campusImages lastImageUpdate");
+    if (dbUniversity) {
+      universityName = dbUniversity.name;
+
+      // Return cached images if available and not forcing refresh
+      if (!refresh && dbUniversity.campusImages?.length > 0) {
+        return res.status(200).json({
+          universityId: id,
+          name: universityName,
+          images: dbUniversity.campusImages,
+          cached: true,
+          lastUpdated: dbUniversity.lastImageUpdate,
+        });
+      }
+    }
+  }
+
+  if (!universityName) {
+    return res.status(404).json({ error: "University not found" });
+  }
+
+  // Fetch from Unsplash
+  const images = await unsplashService.getCampusImagesWithFallback(
+    universityName,
+    Math.min(parseInt(count), 10)
+  );
+
+  res.status(200).json({
+    universityId: id,
+    name: universityName,
+    images,
+    cached: false,
+  });
 });

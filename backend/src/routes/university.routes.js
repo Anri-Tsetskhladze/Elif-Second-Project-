@@ -17,6 +17,7 @@ import {
   getUniversityStats,
   joinUniversity,
   leaveUniversity,
+  getCampusImages,
 } from "../controllers/university.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 
@@ -39,6 +40,7 @@ router.get("/:id/reviews", getUniversityReviews);
 router.get("/:id/posts", getUniversityPosts);
 router.get("/:id/notes", getUniversityNotes);
 router.get("/:id/stats", getUniversityStats);
+router.get("/:id/campus-images", getCampusImages);
 
 // Protected routes
 router.get("/:id/students", protectRoute, getUniversityStudents);
